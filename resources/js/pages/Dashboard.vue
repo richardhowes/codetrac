@@ -17,7 +17,20 @@ import {
     Legend,
     ArcElement,
     BarElement,
+    RadialLinearScale,
+    Filler,
 } from 'chart.js';
+import { 
+    TrendingUp, 
+    Clock, 
+    Code2, 
+    DollarSign, 
+    Activity,
+    Zap,
+    FileCode2,
+    Terminal,
+    GitBranch,
+} from 'lucide-vue-next';
 
 ChartJS.register(
     CategoryScale,
@@ -28,7 +41,9 @@ ChartJS.register(
     Tooltip,
     Legend,
     ArcElement,
-    BarElement
+    BarElement,
+    RadialLinearScale,
+    Filler
 );
 
 interface Props {
@@ -92,7 +107,7 @@ const props = defineProps<Props>();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'DevTrack Dashboard',
+        title: 'DevTrack Analytics',
         href: '/dashboard',
     },
 ];
@@ -100,28 +115,39 @@ const breadcrumbs: BreadcrumbItem[] = [
 const selectedPeriod = ref(props.filters.period);
 
 const periods = [
-    { value: '24hours', label: 'Last 24 Hours' },
-    { value: '7days', label: 'Last 7 Days' },
-    { value: '30days', label: 'Last 30 Days' },
-    { value: '90days', label: 'Last 90 Days' },
-    { value: 'all', label: 'All Time' },
+    { value: '24hours', label: '24h', icon: Clock },
+    { value: '7days', label: '7d', icon: Activity },
+    { value: '30days', label: '30d', icon: TrendingUp },
+    { value: '90days', label: '90d', icon: GitBranch },
+    { value: 'all', label: 'All', icon: Zap },
 ];
+
+// Calculate productivity metrics
+const productivityScore = computed(() => {
+    const linesPerHour = props.stats.summary.total_lines_written / Math.max(props.stats.summary.total_time_hours, 1);
+    const efficiency = Math.min(100, (linesPerHour / 50) * 100); // Assume 50 lines/hour is 100% efficient
+    return Math.round(efficiency);
+});
 
 const activityChartData = computed(() => ({
     labels: props.stats.activity_timeline.map(d => d.date),
     datasets: [
         {
-            label: 'Sessions',
+            label: 'Development Sessions',
             data: props.stats.activity_timeline.map(d => d.sessions),
-            borderColor: 'rgb(99, 102, 241)',
-            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            borderColor: '#a855f7',
+            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+            tension: 0.4,
+            fill: true,
             yAxisID: 'y',
         },
         {
-            label: 'Lines Written',
+            label: 'Code Output',
             data: props.stats.activity_timeline.map(d => d.lines_written),
-            borderColor: 'rgb(34, 197, 94)',
-            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+            borderColor: '#06b6d4',
+            backgroundColor: 'rgba(6, 182, 212, 0.1)',
+            tension: 0.4,
+            fill: true,
             yAxisID: 'y1',
         },
     ],
@@ -137,13 +163,39 @@ const activityChartOptions = {
     plugins: {
         legend: {
             position: 'top' as const,
+            labels: {
+                usePointStyle: true,
+                padding: 20,
+                font: {
+                    size: 12,
+                },
+            },
+        },
+        tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            cornerRadius: 8,
+            titleFont: {
+                size: 14,
+            },
+            bodyFont: {
+                size: 13,
+            },
         },
     },
     scales: {
+        x: {
+            grid: {
+                display: false,
+            },
+        },
         y: {
             type: 'linear' as const,
             display: true,
             position: 'left' as const,
+            grid: {
+                color: 'rgba(0, 0, 0, 0.05)',
+            },
         },
         y1: {
             type: 'linear' as const,
@@ -156,48 +208,35 @@ const activityChartOptions = {
     },
 };
 
-const fileTypesWrittenData = computed(() => ({
-    labels: props.stats.file_types_written.map(f => f.type),
+// Polar area chart for file types
+const fileTypesData = computed(() => ({
+    labels: props.stats.file_types_written.slice(0, 6).map(f => f.type),
     datasets: [{
-        data: props.stats.file_types_written.map(f => f.count),
+        label: 'Files Written',
+        data: props.stats.file_types_written.slice(0, 6).map(f => f.count),
         backgroundColor: [
-            '#3b82f6',
-            '#ef4444',
-            '#10b981',
-            '#f59e0b',
-            '#8b5cf6',
-            '#ec4899',
-            '#06b6d4',
-            '#84cc16',
-            '#6b7280',
+            'rgba(168, 85, 247, 0.7)',
+            'rgba(6, 182, 212, 0.7)',
+            'rgba(34, 211, 238, 0.7)',
+            'rgba(251, 191, 36, 0.7)',
+            'rgba(239, 68, 68, 0.7)',
+            'rgba(16, 185, 129, 0.7)',
         ],
+        borderWidth: 2,
+        borderColor: '#fff',
     }],
 }));
 
-const fileTypesReadData = computed(() => ({
-    labels: props.stats.file_types_read.map(f => f.type),
-    datasets: [{
-        data: props.stats.file_types_read.map(f => f.count),
-        backgroundColor: [
-            '#3b82f6',
-            '#ef4444',
-            '#10b981',
-            '#f59e0b',
-            '#8b5cf6',
-            '#ec4899',
-            '#06b6d4',
-            '#84cc16',
-            '#6b7280',
-        ],
-    }],
-}));
-
+// Horizontal bar for commands
 const topCommandsData = computed(() => ({
-    labels: props.stats.top_commands.map(c => c.command),
+    labels: props.stats.top_commands.slice(0, 8).map(c => c.command),
     datasets: [{
-        label: 'Usage Count',
-        data: props.stats.top_commands.map(c => c.count),
-        backgroundColor: 'rgba(99, 102, 241, 0.5)',
+        label: 'Executions',
+        data: props.stats.top_commands.slice(0, 8).map(c => c.count),
+        backgroundColor: 'rgba(168, 85, 247, 0.6)',
+        borderColor: 'rgba(168, 85, 247, 1)',
+        borderWidth: 1,
+        borderRadius: 4,
     }],
 }));
 
@@ -206,9 +245,17 @@ const doughnutOptions = {
     maintainAspectRatio: false,
     plugins: {
         legend: {
-            position: 'right' as const,
+            position: 'bottom' as const,
+            labels: {
+                padding: 15,
+                usePointStyle: true,
+                font: {
+                    size: 11,
+                },
+            },
         },
     },
+    cutout: '65%',
 };
 
 const barOptions = {
@@ -218,6 +265,23 @@ const barOptions = {
     plugins: {
         legend: {
             display: false,
+        },
+        tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 10,
+            cornerRadius: 6,
+        },
+    },
+    scales: {
+        x: {
+            grid: {
+                display: false,
+            },
+        },
+        y: {
+            grid: {
+                display: false,
+            },
         },
     },
 };
@@ -231,123 +295,190 @@ function formatNumber(num: number): string {
     }
     return num.toString();
 }
+
+function getProductivityLabel(score: number): string {
+    if (score >= 80) return 'Excellent';
+    if (score >= 60) return 'Good';
+    if (score >= 40) return 'Average';
+    return 'Needs Improvement';
+}
+
+function getProductivityColor(score: number): string {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-blue-600';
+    if (score >= 40) return 'text-yellow-600';
+    return 'text-red-600';
+}
 </script>
 
 <template>
-    <Head title="DevTrack Dashboard" />
+    <Head title="DevTrack Analytics" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="flex h-full flex-1 flex-col gap-4 p-4">
-            <!-- Period Selector -->
-            <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold">Claude Code Analytics</h1>
-                <div class="flex gap-2">
+        <div class="flex h-full flex-1 flex-col gap-6 p-6">
+            <!-- Header with Period Selector -->
+            <div class="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
+                <div>
+                    <h1 class="text-3xl font-bold bg-gradient-to-r from-purple-600 to-cyan-500 bg-clip-text text-transparent">
+                        Development Analytics
+                    </h1>
+                    <p class="text-muted-foreground mt-1">Track your Claude Code productivity and costs</p>
+                </div>
+                <div class="flex gap-1 bg-secondary/50 p-1 rounded-lg">
                     <Button
                         v-for="period in periods"
                         :key="period.value"
-                        :variant="selectedPeriod === period.value ? 'default' : 'outline'"
+                        :variant="selectedPeriod === period.value ? 'default' : 'ghost'"
                         size="sm"
                         @click="selectedPeriod = period.value"
+                        class="gap-2"
                     >
+                        <component :is="period.icon" class="h-3 w-3" />
                         {{ period.label }}
                     </Button>
                 </div>
             </div>
 
-            <!-- Summary Cards -->
-            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
+            <!-- Key Metrics Cards with Icons -->
+            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                <Card class="border-l-4 border-l-purple-500">
                     <CardHeader class="pb-2">
-                        <CardTitle class="text-sm font-medium">Project Cost</CardTitle>
+                        <div class="flex items-center justify-between">
+                            <CardTitle class="text-sm font-medium">Total Investment</CardTitle>
+                            <DollarSign class="h-4 w-4 text-purple-500" />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">${{ stats.summary.total_cost.toFixed(2) }}</div>
-                        <p class="text-xs text-muted-foreground">
-                            {{ formatNumber(stats.summary.total_tokens) }} tokens used
+                        <p class="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            <Zap class="h-3 w-3" />
+                            {{ formatNumber(stats.summary.total_tokens) }} tokens
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card class="border-l-4 border-l-cyan-500">
                     <CardHeader class="pb-2">
-                        <CardTitle class="text-sm font-medium">Lines Written</CardTitle>
+                        <div class="flex items-center justify-between">
+                            <CardTitle class="text-sm font-medium">Code Generated</CardTitle>
+                            <Code2 class="h-4 w-4 text-cyan-500" />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">{{ formatNumber(stats.summary.total_lines_written) }}</div>
                         <p class="text-xs text-muted-foreground">
-                            Total lines of code written
+                            Lines of code
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card class="border-l-4 border-l-green-500">
                     <CardHeader class="pb-2">
-                        <CardTitle class="text-sm font-medium">Time Spent</CardTitle>
+                        <div class="flex items-center justify-between">
+                            <CardTitle class="text-sm font-medium">Time Invested</CardTitle>
+                            <Clock class="h-4 w-4 text-green-500" />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">{{ stats.summary.total_time_hours }}h</div>
                         <p class="text-xs text-muted-foreground">
-                            Total hours on this project
+                            Development hours
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card class="border-l-4 border-l-yellow-500">
                     <CardHeader class="pb-2">
-                        <CardTitle class="text-sm font-medium">Sessions</CardTitle>
+                        <div class="flex items-center justify-between">
+                            <CardTitle class="text-sm font-medium">Sessions</CardTitle>
+                            <Activity class="h-4 w-4 text-yellow-500" />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div class="text-2xl font-bold">{{ stats.summary.total_sessions }}</div>
                         <p class="text-xs text-muted-foreground">
-                            Avg {{ stats.summary.avg_session_minutes }} min/session
+                            ~{{ stats.summary.avg_session_minutes }} min avg
                         </p>
+                    </CardContent>
+                </Card>
+
+                <Card class="border-l-4 border-l-pink-500">
+                    <CardHeader class="pb-2">
+                        <div class="flex items-center justify-between">
+                            <CardTitle class="text-sm font-medium">Productivity</CardTitle>
+                            <TrendingUp class="h-4 w-4 text-pink-500" />
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div class="flex items-baseline gap-2">
+                            <div class="text-2xl font-bold">{{ productivityScore }}%</div>
+                            <span :class="getProductivityColor(productivityScore)" class="text-xs font-medium">
+                                {{ getProductivityLabel(productivityScore) }}
+                            </span>
+                        </div>
+                        <div class="mt-2 h-2 bg-secondary rounded-full overflow-hidden">
+                            <div 
+                                class="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
+                                :style="`width: ${productivityScore}%`"
+                            />
+                        </div>
                     </CardContent>
                 </Card>
             </div>
 
-            <!-- Activity Timeline -->
-            <Card>
+            <!-- Main Activity Chart -->
+            <Card class="col-span-full">
                 <CardHeader>
-                    <CardTitle>Activity Overview</CardTitle>
-                    <CardDescription>Daily sessions and lines written</CardDescription>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Development Activity</CardTitle>
+                            <CardDescription>Sessions and code output over time</CardDescription>
+                        </div>
+                        <div class="flex gap-4 text-sm">
+                            <div class="flex items-center gap-2">
+                                <div class="h-3 w-3 rounded-full bg-purple-500"></div>
+                                <span class="text-muted-foreground">Sessions</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="h-3 w-3 rounded-full bg-cyan-500"></div>
+                                <span class="text-muted-foreground">Lines</span>
+                            </div>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    <div class="h-64">
+                    <div class="h-80">
                         <Line :data="activityChartData" :options="activityChartOptions" />
                     </div>
                 </CardContent>
             </Card>
 
-            <!-- File Types and Commands -->
-            <div class="grid gap-4 md:grid-cols-3">
+            <!-- Analytics Grid -->
+            <div class="grid gap-6 lg:grid-cols-3">
+                <!-- File Types Chart -->
                 <Card>
                     <CardHeader>
-                        <CardTitle>Top File Types Written</CardTitle>
-                        <CardDescription>Most frequently edited file types</CardDescription>
+                        <div class="flex items-center gap-2">
+                            <FileCode2 class="h-4 w-4 text-purple-500" />
+                            <CardTitle>Code Distribution</CardTitle>
+                        </div>
+                        <CardDescription>Files written by type</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div class="h-64">
-                            <Doughnut :data="fileTypesWrittenData" :options="doughnutOptions" />
+                            <Doughnut :data="fileTypesData" :options="doughnutOptions" />
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card>
+                <!-- Commands Chart -->
+                <Card class="lg:col-span-2">
                     <CardHeader>
-                        <CardTitle>Top File Types Read</CardTitle>
-                        <CardDescription>Most frequently viewed file types</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div class="h-64">
-                            <Doughnut :data="fileTypesReadData" :options="doughnutOptions" />
+                        <div class="flex items-center gap-2">
+                            <Terminal class="h-4 w-4 text-cyan-500" />
+                            <CardTitle>Command Usage</CardTitle>
                         </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Top Bash Commands</CardTitle>
-                        <CardDescription>Most frequently used commands</CardDescription>
+                        <CardDescription>Most frequently executed commands</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div class="h-64">
@@ -357,35 +488,62 @@ function formatNumber(num: number): string {
                 </Card>
             </div>
 
-            <!-- Recent Sessions Table -->
+            <!-- Recent Sessions with enhanced styling -->
             <Card>
                 <CardHeader>
-                    <CardTitle>Latest Sessions</CardTitle>
-                    <CardDescription>Recent Claude Code sessions</CardDescription>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Recent Sessions</CardTitle>
+                            <CardDescription>Latest development activities</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" class="gap-2">
+                            <GitBranch class="h-3 w-3" />
+                            View All
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr class="border-b">
-                                    <th class="text-left py-2">Task</th>
-                                    <th class="text-left py-2">Developer</th>
-                                    <th class="text-left py-2">Project</th>
-                                    <th class="text-left py-2">When</th>
-                                    <th class="text-right py-2">Duration</th>
-                                    <th class="text-right py-2">Lines</th>
-                                    <th class="text-right py-2">Cost</th>
+                                <tr class="border-b border-border/50">
+                                    <th class="text-left py-3 font-medium text-muted-foreground">Task</th>
+                                    <th class="text-left py-3 font-medium text-muted-foreground">Developer</th>
+                                    <th class="text-left py-3 font-medium text-muted-foreground">Project</th>
+                                    <th class="text-left py-3 font-medium text-muted-foreground">When</th>
+                                    <th class="text-right py-3 font-medium text-muted-foreground">Duration</th>
+                                    <th class="text-right py-3 font-medium text-muted-foreground">Output</th>
+                                    <th class="text-right py-3 font-medium text-muted-foreground">Cost</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="session in stats.recent_sessions" :key="session.id" class="border-b">
-                                    <td class="py-2 max-w-xs truncate">{{ session.task }}</td>
-                                    <td class="py-2">{{ session.developer }}</td>
-                                    <td class="py-2">{{ session.project }}</td>
-                                    <td class="py-2">{{ session.started_at }}</td>
-                                    <td class="py-2 text-right">{{ session.duration }}</td>
-                                    <td class="py-2 text-right">{{ session.lines_written }}</td>
-                                    <td class="py-2 text-right">{{ session.cost }}</td>
+                                <tr v-for="session in stats.recent_sessions" :key="session.id" 
+                                    class="border-b border-border/30 hover:bg-secondary/30 transition-colors">
+                                    <td class="py-3 max-w-xs">
+                                        <div class="truncate font-medium">{{ session.task }}</div>
+                                    </td>
+                                    <td class="py-3">
+                                        <span class="text-muted-foreground">{{ session.developer }}</span>
+                                    </td>
+                                    <td class="py-3">
+                                        <span class="inline-flex items-center gap-1 text-xs bg-secondary px-2 py-1 rounded-md">
+                                            <GitBranch class="h-3 w-3" />
+                                            {{ session.project }}
+                                        </span>
+                                    </td>
+                                    <td class="py-3 text-muted-foreground">{{ session.started_at }}</td>
+                                    <td class="py-3 text-right">
+                                        <span class="inline-flex items-center gap-1">
+                                            <Clock class="h-3 w-3 text-muted-foreground" />
+                                            {{ session.duration }}
+                                        </span>
+                                    </td>
+                                    <td class="py-3 text-right">
+                                        <span class="font-mono text-xs bg-gradient-to-r from-purple-600 to-cyan-600 bg-clip-text text-transparent font-semibold">
+                                            {{ session.lines_written }}
+                                        </span>
+                                    </td>
+                                    <td class="py-3 text-right font-medium">{{ session.cost }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -393,32 +551,32 @@ function formatNumber(num: number): string {
                 </CardContent>
             </Card>
 
-            <!-- Top Files -->
+            <!-- Top Files with enhanced visualization -->
             <Card>
                 <CardHeader>
-                    <CardTitle>Top Files</CardTitle>
-                    <CardDescription>Files with the most lines written</CardDescription>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Most Active Files</CardTitle>
+                            <CardDescription>Files with highest development activity</CardDescription>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="border-b">
-                                    <th class="text-left py-2">File</th>
-                                    <th class="text-left py-2">Path</th>
-                                    <th class="text-right py-2">Lines Written</th>
-                                    <th class="text-right py-2">Edits</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="file in stats.top_files" :key="file.path" class="border-b">
-                                    <td class="py-2 font-mono text-xs">{{ file.name }}</td>
-                                    <td class="py-2 font-mono text-xs text-muted-foreground max-w-md truncate">{{ file.path }}</td>
-                                    <td class="py-2 text-right">{{ file.lines }}</td>
-                                    <td class="py-2 text-right">{{ file.edits }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="space-y-4">
+                        <div v-for="(file, index) in stats.top_files.slice(0, 5)" :key="file.path" 
+                             class="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors">
+                            <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center text-white font-bold">
+                                {{ index + 1 }}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-mono text-sm font-medium truncate">{{ file.name }}</div>
+                                <div class="font-mono text-xs text-muted-foreground truncate">{{ file.path }}</div>
+                            </div>
+                            <div class="flex-shrink-0 text-right">
+                                <div class="text-sm font-semibold">{{ file.lines }} lines</div>
+                                <div class="text-xs text-muted-foreground">{{ file.edits }} edits</div>
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
