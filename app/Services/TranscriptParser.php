@@ -133,7 +133,7 @@ class TranscriptParser
             }
 
             // Extract tool results
-            if (isset($data['toolUseResult'])) {
+            if (isset($data['toolUseResult']) && is_array($data['toolUseResult'])) {
                 $this->parseToolResult($data['toolUseResult']);
             }
         }
@@ -153,28 +153,48 @@ class TranscriptParser
             
             case 'Read':
                 if (isset($input['file_path'])) {
-                    $this->recordFileOperation($input['file_path'], 'read');
+                    $this->recordFileOperation($input['file_path'], 'read', 0);
                     $this->filesRead++;
                 }
                 break;
             
             case 'Write':
                 if (isset($input['file_path'])) {
-                    $this->recordFileOperation($input['file_path'], 'create');
+                    $lines = 0;
+                    if (isset($input['content'])) {
+                        $lines = substr_count($input['content'], "\n") + 1;
+                        $this->linesWritten += $lines;
+                    }
+                    $this->recordFileOperation($input['file_path'], 'create', $lines);
                     $this->filesCreated++;
                 }
                 break;
             
             case 'Edit':
+                if (isset($input['file_path'])) {
+                    $lines = 0;
+                    if (isset($input['new_string'])) {
+                        $lines = substr_count($input['new_string'], "\n") + 1;
+                        $this->linesWritten += $lines;
+                    }
+                    $this->recordFileOperation($input['file_path'], 'edit', $lines);
+                    $this->filesModified++;
+                }
+                break;
+                
             case 'MultiEdit':
                 if (isset($input['file_path'])) {
-                    $this->recordFileOperation($input['file_path'], 'edit');
-                    $this->filesModified++;
-                    
-                    // Estimate lines written from edit size
-                    if (isset($input['new_string'])) {
-                        $this->linesWritten += substr_count($input['new_string'], "\n") + 1;
+                    $lines = 0;
+                    if (isset($input['edits']) && is_array($input['edits'])) {
+                        foreach ($input['edits'] as $edit) {
+                            if (isset($edit['new_string'])) {
+                                $lines += substr_count($edit['new_string'], "\n") + 1;
+                            }
+                        }
+                        $this->linesWritten += $lines;
                     }
+                    $this->recordFileOperation($input['file_path'], 'edit', $lines);
+                    $this->filesModified++;
                 }
                 break;
         }
@@ -185,12 +205,42 @@ class TranscriptParser
         // Extract lines from file reads
         if (isset($result['file']['numLines'])) {
             $this->linesRead += $result['file']['numLines'];
+            
+            // Also update the file operation with line count
+            if (isset($result['filePath'])) {
+                $this->recordFileOperation($result['filePath'], 'read', $result['file']['numLines']);
+            }
         }
 
         // Extract lines from edits
-        if (isset($result['structuredPatch'])) {
-            foreach ($result['structuredPatch'] as $patch) {
-                $this->linesWritten += count($patch['newLines'] ?? []);
+        if (isset($result['structuredPatch']) && isset($result['filePath'])) {
+            // Handle both array of patches and single patch
+            $patches = $result['structuredPatch'];
+            
+            // If it's not an array or if it's an associative array (single patch), wrap it
+            if (!is_array($patches) || (is_array($patches) && isset($patches['newLines']))) {
+                $patches = [$patches];
+            }
+            
+            $linesEdited = 0;
+            foreach ($patches as $patch) {
+                if (!is_array($patch)) {
+                    continue;
+                }
+                
+                // Handle newLines - it could be an array or a count
+                if (isset($patch['newLines'])) {
+                    if (is_array($patch['newLines'])) {
+                        $linesEdited += count($patch['newLines']);
+                    } elseif (is_numeric($patch['newLines'])) {
+                        $linesEdited += (int)$patch['newLines'];
+                    }
+                }
+            }
+            
+            if ($linesEdited > 0) {
+                $this->linesWritten += $linesEdited;
+                $this->recordFileOperation($result['filePath'], 'edit', $linesEdited);
             }
         }
     }
@@ -204,17 +254,17 @@ class TranscriptParser
         }
 
         if (preg_match('/Tool:\s*Edit\s*-\s*(.+)/', $line, $matches)) {
-            $this->recordFileOperation($matches[1], 'edit');
+            $this->recordFileOperation($matches[1], 'edit', 0);
             $this->filesModified++;
         }
 
         if (preg_match('/Tool:\s*Write\s*-\s*(.+)/', $line, $matches)) {
-            $this->recordFileOperation($matches[1], 'create');
+            $this->recordFileOperation($matches[1], 'create', 0);
             $this->filesCreated++;
         }
 
         if (preg_match('/Tool:\s*Read\s*-\s*(.+)/', $line, $matches)) {
-            $this->recordFileOperation($matches[1], 'read');
+            $this->recordFileOperation($matches[1], 'read', 0);
             $this->filesRead++;
         }
 
@@ -243,7 +293,7 @@ class TranscriptParser
         }
     }
 
-    protected function recordFileOperation(string $filePath, string $operation): void
+    protected function recordFileOperation(string $filePath, string $operation, int $lines = 0): void
     {
         $filePath = trim($filePath);
         $key = $filePath . '|' . $operation;
@@ -253,10 +303,12 @@ class TranscriptParser
                 'path' => $filePath,
                 'operation' => $operation,
                 'occurrences' => 0,
+                'lines' => 0,
             ];
         }
         
         $this->fileOperations[$key]['occurrences']++;
+        $this->fileOperations[$key]['lines'] += $lines;
     }
 
     protected function recordCommand(string $command): void
@@ -283,6 +335,7 @@ class TranscriptParser
                 'file_extension' => SessionFile::extractExtension($operation['path']),
                 'operation' => $operation['operation'],
                 'occurrences' => $operation['occurrences'],
+                'lines_affected' => $operation['lines'] ?? 0,
             ]);
         }
     }

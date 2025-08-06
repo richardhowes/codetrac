@@ -34,7 +34,7 @@ class AnalyticsService
         return [
             'summary' => $this->calculateSummary($sessions),
             'activity_timeline' => $this->getActivityTimeline($sessions, $startDate),
-            'file_types_written' => $this->getFileTypeStats($sessions, 'write'),
+            'file_types_written' => $this->getFileTypeStats($sessions, 'edit'),
             'file_types_read' => $this->getFileTypeStats($sessions, 'read'),
             'top_commands' => $this->getTopCommands($sessions),
             'recent_sessions' => $this->getRecentSessions($developerId, $projectId, 10),
@@ -197,7 +197,7 @@ class AnalyticsService
                     'started_at' => $session->started_at->format('M d, H:i'),
                     'duration' => $session->duration_minutes . ' min',
                     'lines_written' => $session->metrics->lines_written ?? 0,
-                    'cost' => '$' . number_format($session->metrics->cost ?? 0, 4),
+                    'cost' => $session->metrics->cost ?? 0,
                     'status' => $session->status,
                 ];
             });
@@ -264,7 +264,7 @@ class AnalyticsService
                 'username' => $developer->username,
                 'hostname' => $developer->hostname,
                 'total_sessions' => $developer->total_sessions,
-                'total_cost' => '$' . number_format($developer->total_cost, 2),
+                'total_cost' => $developer->total_cost,
                 'total_lines' => $developer->total_lines_written,
                 'recent_sessions' => $developer->sessions->count(),
                 'last_active' => $developer->sessions->first() 
@@ -285,7 +285,7 @@ class AnalyticsService
                     'name' => $project->name,
                     'path' => $project->path,
                     'total_sessions' => $project->total_sessions,
-                    'total_cost' => '$' . number_format($project->total_cost, 2),
+                    'total_cost' => $project->total_cost,
                     'total_lines' => $project->total_lines_written,
                     'total_hours' => round($project->total_minutes_spent / 60, 1),
                     'last_active' => $project->last_activity_at->diffForHumans(),

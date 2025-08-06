@@ -91,8 +91,23 @@ response=$(curl -s -w "\n%{http_code}" -X POST \
     "$API_URL")
 
 # Extract HTTP status code
-http_code=$(echo "$response" | tail -n1)
-response_body=$(echo "$response" | head -n-1)
+# Check if response has content
+if [ -z "$response" ]; then
+    http_code=""
+    response_body=""
+else
+    # Count lines in response
+    line_count=$(echo "$response" | wc -l)
+    if [ "$line_count" -eq 1 ]; then
+        # Only status code, no body
+        http_code="$response"
+        response_body=""
+    else
+        # Extract status code and body
+        http_code=$(echo "$response" | tail -n1)
+        response_body=$(echo "$response" | sed '$d')
+    fi
+fi
 
 # Check response
 if [ "$http_code" -eq 200 ] || [ "$http_code" -eq 201 ]; then
