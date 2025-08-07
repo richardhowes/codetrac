@@ -12,8 +12,8 @@
 # The script will run after each Claude Code session ends
 
 # Configuration - POINTING TO LOCAL DEVTRACK
-API_TOKEN="local-dev-token"
-API_URL="http://localhost:8001/api/webhook/session"
+API_TOKEN="test-token-123"
+API_URL="http://localhost:8000/api/webhook/session"
 
 # Read JSON input from stdin
 json_input=$(cat)

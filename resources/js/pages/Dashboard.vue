@@ -1,51 +1,29 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select } from '@/components/ui/select';
+import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/vue3';
-import { ref, computed, watch } from 'vue';
-import { router } from '@inertiajs/vue3';
-import { Line, Doughnut, Bar } from 'vue-chartjs';
+import { Head, router } from '@inertiajs/vue3';
 import {
+    ArcElement,
+    BarElement,
+    CategoryScale,
     Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend,
-    ArcElement,
-    BarElement,
-    RadialLinearScale,
     Filler,
-} from 'chart.js';
-import { 
-    TrendingUp, 
-    Clock, 
-    Code2, 
-    DollarSign, 
-    Activity,
-    Zap,
-    FileCode2,
-    Terminal,
-    GitBranch,
-} from 'lucide-vue-next';
-
-ChartJS.register(
-    CategoryScale,
+    Legend,
     LinearScale,
-    PointElement,
     LineElement,
+    PointElement,
+    RadialLinearScale,
     Title,
     Tooltip,
-    Legend,
-    ArcElement,
-    BarElement,
-    RadialLinearScale,
-    Filler
-);
+} from 'chart.js';
+import { Activity, Clock, Code2, DollarSign, FileCode2, FolderOpen, GitBranch, Terminal, TrendingUp, Users, Zap } from 'lucide-vue-next';
+import { computed, ref, watch } from 'vue';
+import { Bar, Doughnut, Line } from 'vue-chartjs';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, BarElement, RadialLinearScale, Filler);
 
 interface Props {
     stats: {
@@ -114,6 +92,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const selectedPeriod = ref(props.filters.period);
+const selectedDeveloper = ref(props.filters.developer_id || null);
+const selectedProject = ref(props.filters.project_id || null);
 const isLoading = ref(false);
 
 const periods = [
@@ -124,20 +104,38 @@ const periods = [
     { value: 'all', label: 'All', icon: Zap },
 ];
 
-// Watch for period changes and update the dashboard
-watch(selectedPeriod, (newPeriod) => {
+// Watch for filter changes and update the dashboard
+watch([selectedPeriod, selectedDeveloper, selectedProject], ([newPeriod, newDeveloper, newProject]) => {
     isLoading.value = true;
-    router.get('/dashboard', 
-        { period: newPeriod },
-        { 
-            preserveState: false,
-            preserveScroll: true,
-            onFinish: () => {
-                isLoading.value = false;
-            }
-        }
-    );
+    const params: any = { period: newPeriod };
+    if (newDeveloper) params.developer_id = newDeveloper;
+    if (newProject) params.project_id = newProject;
+
+    router.get('/dashboard', params, {
+        preserveState: false,
+        preserveScroll: true,
+        onFinish: () => {
+            isLoading.value = false;
+        },
+    });
 });
+
+// Prepare developer and project options for selects
+const developerOptions = computed(() => [
+    { value: null, label: 'All Developers' },
+    ...props.developers.map((dev) => ({
+        value: dev.id,
+        label: `${dev.username}@${dev.hostname}`,
+    })),
+]);
+
+const projectOptions = computed(() => [
+    { value: null, label: 'All Projects' },
+    ...props.projects.map((proj) => ({
+        value: proj.id,
+        label: proj.name,
+    })),
+]);
 
 // Calculate productivity metrics
 const productivityScore = computed(() => {
@@ -147,11 +145,11 @@ const productivityScore = computed(() => {
 });
 
 const activityChartData = computed(() => ({
-    labels: props.stats.activity_timeline.map(d => d.date),
+    labels: props.stats.activity_timeline.map((d) => d.date),
     datasets: [
         {
             label: 'Development Sessions',
-            data: props.stats.activity_timeline.map(d => d.sessions),
+            data: props.stats.activity_timeline.map((d) => d.sessions),
             borderColor: '#a855f7',
             backgroundColor: 'rgba(168, 85, 247, 0.2)',
             tension: 0.4,
@@ -163,7 +161,7 @@ const activityChartData = computed(() => ({
         },
         {
             label: 'Code Output',
-            data: props.stats.activity_timeline.map(d => d.lines_written),
+            data: props.stats.activity_timeline.map((d) => d.lines_written),
             borderColor: '#06b6d4',
             backgroundColor: 'rgba(6, 182, 212, 0.2)',
             tension: 0.4,
@@ -226,7 +224,7 @@ const activityChartOptions = {
             },
             ticks: {
                 color: 'rgb(156, 163, 175)', // text-gray-400
-                callback: function(value: any) {
+                callback: function (value: any) {
                     return Number.isInteger(value) ? value : null;
                 },
                 stepSize: 1,
@@ -247,7 +245,7 @@ const activityChartOptions = {
             },
             ticks: {
                 color: 'rgb(156, 163, 175)', // text-gray-400
-                callback: function(value: any) {
+                callback: function (value: any) {
                     return Number.isInteger(value) ? value : null;
                 },
             },
@@ -264,21 +262,23 @@ const activityChartOptions = {
 const fileTypesData = computed(() => {
     const data = props.stats.file_types_written.slice(0, 6);
     return {
-        labels: data.map(f => f.type || 'Unknown'),
-        datasets: [{
-            label: 'Files Written',
-            data: data.map(f => f.count || 0),
-            backgroundColor: [
-                'rgba(168, 85, 247, 0.8)',
-                'rgba(6, 182, 212, 0.8)',
-                'rgba(34, 211, 238, 0.8)',
-                'rgba(251, 191, 36, 0.8)',
-                'rgba(239, 68, 68, 0.8)',
-                'rgba(16, 185, 129, 0.8)',
-            ],
-            borderWidth: 2,
-            borderColor: 'rgba(0, 0, 0, 0.1)',
-        }],
+        labels: data.map((f) => f.type || 'Unknown'),
+        datasets: [
+            {
+                label: 'Files Written',
+                data: data.map((f) => f.count || 0),
+                backgroundColor: [
+                    'rgba(168, 85, 247, 0.8)',
+                    'rgba(6, 182, 212, 0.8)',
+                    'rgba(34, 211, 238, 0.8)',
+                    'rgba(251, 191, 36, 0.8)',
+                    'rgba(239, 68, 68, 0.8)',
+                    'rgba(16, 185, 129, 0.8)',
+                ],
+                borderWidth: 2,
+                borderColor: 'rgba(0, 0, 0, 0.1)',
+            },
+        ],
     };
 });
 
@@ -286,18 +286,20 @@ const fileTypesData = computed(() => {
 const topCommandsData = computed(() => {
     const commands = props.stats.top_commands.slice(0, 8);
     return {
-        labels: commands.map(c => c.command || 'Unknown'),
-        datasets: [{
-            label: 'Executions',
-            data: commands.map(c => c.count || 0),
-            backgroundColor: commands.map((_, i) => {
-                const opacity = 0.9 - (i * 0.1);
-                return `rgba(168, 85, 247, ${opacity})`;
-            }),
-            borderColor: 'rgba(168, 85, 247, 1)',
-            borderWidth: 1,
-            borderRadius: 4,
-        }],
+        labels: commands.map((c) => c.command || 'Unknown'),
+        datasets: [
+            {
+                label: 'Executions',
+                data: commands.map((c) => c.count || 0),
+                backgroundColor: commands.map((_, i) => {
+                    const opacity = 0.9 - i * 0.1;
+                    return `rgba(168, 85, 247, ${opacity})`;
+                }),
+                borderColor: 'rgba(168, 85, 247, 1)',
+                borderWidth: 1,
+                borderRadius: 4,
+            },
+        ],
     };
 });
 
@@ -346,7 +348,7 @@ const barOptions = {
             },
             ticks: {
                 color: 'rgb(156, 163, 175)', // text-gray-400
-                callback: function(value: any) {
+                callback: function (value: any) {
                     return Number.isInteger(value) ? value : null;
                 },
             },
@@ -394,14 +396,14 @@ function formatCost(cost: string | number): string {
     if (cost === null || cost === undefined) {
         return '$0.00';
     }
-    
+
     // If it's a string, remove any dollar sign and parse
     if (typeof cost === 'string') {
         const cleanedCost = cost.replace(/^\$/, '');
         const numCost = parseFloat(cleanedCost);
         return isNaN(numCost) ? '$0.00' : `$${numCost.toFixed(2)}`;
     }
-    
+
     // If it's a number, format it
     return `$${cost.toFixed(2)}`;
 }
@@ -426,7 +428,7 @@ function formatDate(date: string): string {
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    
+
     if (diffHours < 1) {
         const diffMins = Math.floor(diffMs / (1000 * 60));
         return `${diffMins} min ago`;
@@ -446,116 +448,130 @@ function formatDate(date: string): string {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
             <!-- Header with Period Selector -->
-            <div class="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
-                <div>
-                    <h1 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-cyan-500 bg-clip-text text-transparent">
-                        Development Analytics
-                    </h1>
-                    <p class="text-muted-foreground mt-1 text-sm sm:text-base">Track your Claude Code productivity and costs</p>
+            <div class="flex flex-col gap-4">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h1 class="bg-gradient-to-r from-purple-600 to-cyan-500 bg-clip-text text-2xl font-bold text-transparent sm:text-3xl">
+                            Development Analytics
+                        </h1>
+                        <p class="mt-1 text-sm text-muted-foreground sm:text-base">Track your Claude Code productivity and costs</p>
+                    </div>
+                    <div class="flex gap-1 overflow-x-auto rounded-lg bg-secondary/50 p-1">
+                        <Button
+                            v-for="period in periods"
+                            :key="period.value"
+                            :variant="selectedPeriod === period.value ? 'default' : 'ghost'"
+                            size="sm"
+                            @click="selectedPeriod = period.value"
+                            class="min-w-fit gap-1 sm:gap-2"
+                            :disabled="isLoading"
+                        >
+                            <component :is="period.icon" class="h-3 w-3" />
+                            <span class="text-xs sm:text-sm">{{ period.label }}</span>
+                        </Button>
+                    </div>
                 </div>
-                <div class="flex gap-1 bg-secondary/50 p-1 rounded-lg overflow-x-auto">
-                    <Button
-                        v-for="period in periods"
-                        :key="period.value"
-                        :variant="selectedPeriod === period.value ? 'default' : 'ghost'"
-                        size="sm"
-                        @click="selectedPeriod = period.value"
-                        class="gap-1 sm:gap-2 min-w-fit"
-                        :disabled="isLoading"
-                    >
-                        <component :is="period.icon" class="h-3 w-3" />
-                        <span class="text-xs sm:text-sm">{{ period.label }}</span>
-                    </Button>
+
+                <!-- Filter Dropdowns -->
+                <div class="flex flex-col gap-3 sm:flex-row">
+                    <div class="flex flex-1 items-center gap-2 sm:max-w-xs">
+                        <Users class="h-4 w-4 text-muted-foreground" />
+                        <Select
+                            v-model="selectedDeveloper"
+                            :options="developerOptions"
+                            placeholder="All Developers"
+                            class="flex-1"
+                            :disabled="isLoading"
+                        />
+                    </div>
+                    <div class="flex flex-1 items-center gap-2 sm:max-w-xs">
+                        <FolderOpen class="h-4 w-4 text-muted-foreground" />
+                        <Select v-model="selectedProject" :options="projectOptions" placeholder="All Projects" class="flex-1" :disabled="isLoading" />
+                    </div>
                 </div>
             </div>
 
             <!-- Loading Overlay -->
-            <div v-if="isLoading" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-                <div class="bg-card p-4 rounded-lg shadow-lg flex items-center gap-3">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+            <div v-if="isLoading" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                <div class="flex items-center gap-3 rounded-lg bg-card p-4 shadow-lg">
+                    <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-purple-500"></div>
                     <span class="text-sm font-medium">Loading analytics...</span>
                 </div>
             </div>
 
             <!-- Key Metrics Cards with Icons -->
-            <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
-                <Card class="border-l-4 border-l-purple-500 transition-all hover:shadow-lg hover:scale-[1.02]">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <Card class="border-l-4 border-l-purple-500 transition-all hover:scale-[1.02] hover:shadow-lg">
                     <CardHeader class="pb-2">
                         <div class="flex items-center justify-between">
-                            <CardTitle class="text-xs sm:text-sm font-medium">Total Investment</CardTitle>
+                            <CardTitle class="text-xs font-medium sm:text-sm">Total Investment</CardTitle>
                             <DollarSign class="h-4 w-4 text-purple-500" />
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div class="text-xl sm:text-2xl font-bold">{{ formatCost(stats.summary.total_cost) }}</div>
-                        <p class="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <div class="text-xl font-bold sm:text-2xl">{{ formatCost(stats.summary.total_cost) }}</div>
+                        <p class="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                             <Zap class="h-3 w-3" />
                             {{ formatNumber(stats.summary.total_tokens) }} tokens
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card class="border-l-4 border-l-cyan-500 transition-all hover:shadow-lg hover:scale-[1.02]">
+                <Card class="border-l-4 border-l-cyan-500 transition-all hover:scale-[1.02] hover:shadow-lg">
                     <CardHeader class="pb-2">
                         <div class="flex items-center justify-between">
-                            <CardTitle class="text-xs sm:text-sm font-medium">Code Generated</CardTitle>
+                            <CardTitle class="text-xs font-medium sm:text-sm">Code Generated</CardTitle>
                             <Code2 class="h-4 w-4 text-cyan-500" />
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div class="text-xl sm:text-2xl font-bold">{{ formatNumber(stats.summary.total_lines_written) }}</div>
-                        <p class="text-xs text-muted-foreground">
-                            Lines of code
-                        </p>
+                        <div class="text-xl font-bold sm:text-2xl">{{ formatNumber(stats.summary.total_lines_written) }}</div>
+                        <p class="text-xs text-muted-foreground">Lines of code</p>
                     </CardContent>
                 </Card>
 
-                <Card class="border-l-4 border-l-green-500 transition-all hover:shadow-lg hover:scale-[1.02]">
+                <Card class="border-l-4 border-l-green-500 transition-all hover:scale-[1.02] hover:shadow-lg">
                     <CardHeader class="pb-2">
                         <div class="flex items-center justify-between">
-                            <CardTitle class="text-xs sm:text-sm font-medium">Time Invested</CardTitle>
+                            <CardTitle class="text-xs font-medium sm:text-sm">Time Invested</CardTitle>
                             <Clock class="h-4 w-4 text-green-500" />
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div class="text-xl sm:text-2xl font-bold">{{ stats.summary.total_time_hours }}h</div>
-                        <p class="text-xs text-muted-foreground">
-                            Development hours
-                        </p>
+                        <div class="text-xl font-bold sm:text-2xl">{{ stats.summary.total_time_hours }}h</div>
+                        <p class="text-xs text-muted-foreground">Development hours</p>
                     </CardContent>
                 </Card>
 
-                <Card class="border-l-4 border-l-yellow-500 transition-all hover:shadow-lg hover:scale-[1.02]">
+                <Card class="border-l-4 border-l-yellow-500 transition-all hover:scale-[1.02] hover:shadow-lg">
                     <CardHeader class="pb-2">
                         <div class="flex items-center justify-between">
-                            <CardTitle class="text-xs sm:text-sm font-medium">Sessions</CardTitle>
+                            <CardTitle class="text-xs font-medium sm:text-sm">Sessions</CardTitle>
                             <Activity class="h-4 w-4 text-yellow-500" />
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div class="text-xl sm:text-2xl font-bold">{{ stats.summary.total_sessions }}</div>
-                        <p class="text-xs text-muted-foreground">
-                            ~{{ stats.summary.avg_session_minutes }} min avg
-                        </p>
+                        <div class="text-xl font-bold sm:text-2xl">{{ stats.summary.total_sessions }}</div>
+                        <p class="text-xs text-muted-foreground">~{{ stats.summary.avg_session_minutes }} min avg</p>
                     </CardContent>
                 </Card>
 
-                <Card class="border-l-4 border-l-pink-500 transition-all hover:shadow-lg hover:scale-[1.02] sm:col-span-2 lg:col-span-1">
+                <Card class="border-l-4 border-l-pink-500 transition-all hover:scale-[1.02] hover:shadow-lg sm:col-span-2 lg:col-span-1">
                     <CardHeader class="pb-2">
                         <div class="flex items-center justify-between">
-                            <CardTitle class="text-xs sm:text-sm font-medium">Productivity</CardTitle>
+                            <CardTitle class="text-xs font-medium sm:text-sm">Productivity</CardTitle>
                             <TrendingUp class="h-4 w-4 text-pink-500" />
                         </div>
                     </CardHeader>
                     <CardContent>
                         <div class="flex items-baseline gap-2">
-                            <div class="text-xl sm:text-2xl font-bold">{{ productivityScore }}%</div>
+                            <div class="text-xl font-bold sm:text-2xl">{{ productivityScore }}%</div>
                             <span :class="getProductivityColor(productivityScore)" class="text-xs font-medium">
                                 {{ getProductivityLabel(productivityScore) }}
                             </span>
                         </div>
-                        <div class="mt-2 h-2 bg-secondary rounded-full overflow-hidden">
-                            <div 
+                        <div class="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
+                            <div
                                 class="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
                                 :style="`width: ${productivityScore}%`"
                             />
@@ -592,7 +608,7 @@ function formatDate(date: string): string {
             </Card>
 
             <!-- Analytics Grid -->
-            <div class="grid gap-6 grid-cols-1 lg:grid-cols-3">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <!-- File Types Chart -->
                 <Card>
                     <CardHeader>
@@ -645,26 +661,29 @@ function formatDate(date: string): string {
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="border-b border-border/50">
-                                    <th class="text-left py-3 font-medium text-muted-foreground">Task</th>
-                                    <th class="text-left py-3 font-medium text-muted-foreground">Developer</th>
-                                    <th class="text-left py-3 font-medium text-muted-foreground">Project</th>
-                                    <th class="text-left py-3 font-medium text-muted-foreground">When</th>
-                                    <th class="text-right py-3 font-medium text-muted-foreground">Duration</th>
-                                    <th class="text-right py-3 font-medium text-muted-foreground">Output</th>
-                                    <th class="text-right py-3 font-medium text-muted-foreground">Cost</th>
+                                    <th class="py-3 text-left font-medium text-muted-foreground">Task</th>
+                                    <th class="py-3 text-left font-medium text-muted-foreground">Developer</th>
+                                    <th class="py-3 text-left font-medium text-muted-foreground">Project</th>
+                                    <th class="py-3 text-left font-medium text-muted-foreground">When</th>
+                                    <th class="py-3 text-right font-medium text-muted-foreground">Duration</th>
+                                    <th class="py-3 text-right font-medium text-muted-foreground">Output</th>
+                                    <th class="py-3 text-right font-medium text-muted-foreground">Cost</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="session in stats.recent_sessions" :key="session.id" 
-                                    class="border-b border-border/30 hover:bg-secondary/30 transition-colors">
-                                    <td class="py-3 max-w-xs">
+                                <tr
+                                    v-for="session in stats.recent_sessions"
+                                    :key="session.id"
+                                    class="border-b border-border/30 transition-colors hover:bg-secondary/30"
+                                >
+                                    <td class="max-w-xs py-3">
                                         <div class="truncate font-medium">{{ formatTask(session.task) }}</div>
                                     </td>
                                     <td class="py-3">
                                         <span class="text-muted-foreground">{{ session.developer }}</span>
                                     </td>
                                     <td class="py-3">
-                                        <span class="inline-flex items-center gap-1 text-xs bg-secondary px-2 py-1 rounded-md">
+                                        <span class="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs">
                                             <GitBranch class="h-3 w-3" />
                                             {{ session.project }}
                                         </span>
@@ -677,7 +696,14 @@ function formatDate(date: string): string {
                                         </span>
                                     </td>
                                     <td class="py-3 text-right">
-                                        <span class="font-mono text-xs font-semibold" :class="session.lines_written > 0 ? 'bg-gradient-to-r from-purple-600 to-cyan-600 bg-clip-text text-transparent' : 'text-muted-foreground'">
+                                        <span
+                                            class="font-mono text-xs font-semibold"
+                                            :class="
+                                                session.lines_written > 0
+                                                    ? 'bg-gradient-to-r from-purple-600 to-cyan-600 bg-clip-text text-transparent'
+                                                    : 'text-muted-foreground'
+                                            "
+                                        >
                                             {{ session.lines_written || 0 }}
                                         </span>
                                     </td>
@@ -701,14 +727,19 @@ function formatDate(date: string): string {
                 </CardHeader>
                 <CardContent>
                     <div class="space-y-4">
-                        <div v-for="(file, index) in stats.top_files.slice(0, 5)" :key="file.path" 
-                             class="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors">
-                            <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center text-white font-bold">
+                        <div
+                            v-for="(file, index) in stats.top_files.slice(0, 5)"
+                            :key="file.path"
+                            class="flex items-center gap-4 rounded-lg p-3 transition-colors hover:bg-secondary/50"
+                        >
+                            <div
+                                class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 font-bold text-white"
+                            >
                                 {{ index + 1 }}
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="font-mono text-sm font-medium truncate">{{ file.name || 'Unknown' }}</div>
-                                <div class="font-mono text-xs text-muted-foreground truncate">{{ file.path || '/' }}</div>
+                            <div class="min-w-0 flex-1">
+                                <div class="truncate font-mono text-sm font-medium">{{ file.name || 'Unknown' }}</div>
+                                <div class="truncate font-mono text-xs text-muted-foreground">{{ file.path || '/' }}</div>
                             </div>
                             <div class="flex-shrink-0 text-right">
                                 <div class="text-sm font-semibold">{{ formatNumber(file.lines || 0) }} lines</div>

@@ -16,13 +16,6 @@ class WebhookController extends Controller
 {
     public function receiveSession(Request $request): JsonResponse
     {
-        // For local development, we'll accept any bearer token
-        // In production, you should validate this properly
-        $authHeader = $request->header('Authorization');
-        if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
-
         $validated = $request->validate([
             'session_id' => 'required|string',
             'transcript' => 'required|file',
@@ -42,7 +35,9 @@ class WebhookController extends Controller
         try {
             DB::beginTransaction();
 
-            $developer = Developer::findOrCreateByMetadata([
+            // If we have an authenticated developer from API token, use it
+            // Otherwise, find or create based on metadata
+            $developer = $request->user() ?? Developer::findOrCreateByMetadata([
                 'username' => $validated['user'],
                 'hostname' => $validated['hostname'],
                 'machine_id' => $validated['machine_id'],
