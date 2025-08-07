@@ -4,7 +4,7 @@
 # This script sends Claude Code session transcripts to CodeTrac for analytics
 
 # Configuration - Update these values for your setup
-CODETRAC_URL="http://localhost:8000/api/webhook/session"
+CODETRAC_URL="http://codetrac.dev/api/webhook/session"
 CODETRAC_TOKEN="47lz0q2eFBf50hXwcn1x9Pl4flzTpxi5uY3N7RBV7Br9y3VcTWKEkPrUANs5"
 
 # Read JSON input from stdin
