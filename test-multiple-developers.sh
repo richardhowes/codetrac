@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# DevTrack Multi-Developer Test Script
+# CodeTrac Multi-Developer Test Script
 # This script simulates multiple developers sending sessions to test the multi-developer functionality
 
 # Configuration
@@ -13,7 +13,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}DevTrack Multi-Developer Test Script${NC}"
+echo -e "${GREEN}CodeTrac Multi-Developer Test Script${NC}"
 echo "API URL: $API_URL"
 echo "----------------------------------------"
 

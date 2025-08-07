@@ -1,4 +1,5 @@
 {
+    "name": "codetrac",
     "private": true,
     "type": "module",
     "scripts": {

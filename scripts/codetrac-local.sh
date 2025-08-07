@@ -1,19 +1,19 @@
 #!/bin/bash
 
-# Claude Code Hook Script for Crono
-# This script sends session transcripts to your Crono dashboard
+# Claude Code Hook Script for Local CodeTrac
+# This script sends session transcripts to your local CodeTrac dashboard
 #
 # Installation:
 # 1. Copy this entire script
 # 2. Go to Claude Code settings by running /hooks
-# 3. Select "Stop" hook event
+# 3. Select "Stop" hook event  
 # 4. Add a new hook with this script as the command
 #
 # The script will run after each Claude Code session ends
 
-# Configuration
-API_TOKEN="your-api-token-here"  # Replace with your actual API token
-API_URL="http://localhost:8000/api/webhook/session"  # Local DevTrack endpoint
+# Configuration - POINTING TO LOCAL CODETRAC
+API_TOKEN="test-token-123"
+API_URL="http://localhost:8000/api/webhook/session"
 
 # Read JSON input from stdin
 json_input=$(cat)
@@ -25,7 +25,7 @@ machine_id=$([ -f /etc/machine-id ] && cat /etc/machine-id || echo "unknown")
 os_type=$(uname -s)
 os_version=$(uname -r)
 architecture=$(uname -m)
-ip_address=$(ifconfig 2>/dev/null | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' || echo "unknown")
+ip_address=$(ifconfig 2>/dev/null | grep -E "inet " | grep -v '127.0.0.1' | head -n 1 | awk '{print $2}' || echo "unknown")
 claude_version=$(claude --version 2>/dev/null | head -1 || echo "unknown")
 working_dir=$(pwd)
 iso_timestamp=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
@@ -38,7 +38,7 @@ iso_timestamp=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
     echo "Location: $working_dir"
     echo "$json_input"
     echo "---"
-} >> ~/claude_hook_metadata.log
+} >> ~/codetrac_hook_metadata.log
 
 # Extract data from JSON
 session_id=$(echo "$json_input" | jq -r '.session_id')
@@ -54,11 +54,11 @@ if [ ! -f "$transcript_path" ]; then
     # points to a file that doesn't exist if a session is reused / cleared.
     # In this case, search inside the base path of the transcript path for a file
     # that contains the session_id
-    transcript_path="${transcript_path%/*}"
-    transcript_path=$(find "$transcript_path" -type f -exec grep -l "$session_id" {} + | head -n1)
+    transcript_dir="${transcript_path%/*}"
+    transcript_path=$(find "$transcript_dir" -type f -exec grep -l "$session_id" {} + 2>/dev/null | head -n1)
 
     if [ ! -f "$transcript_path" ]; then
-        echo "Error: Transcript file not found at $transcript_path" >&2
+        echo "Error: Transcript file not found for session $session_id" >&2
         exit 1
     fi
 fi
@@ -73,6 +73,7 @@ gzip -c "$transcript_path" > "$temp_file"
 # Send to API as multipart form data with gzip compression including metadata
 response=$(curl -s -w "\n%{http_code}" -X POST \
     -H "Authorization: Bearer $API_TOKEN" \
+    -H "Accept: application/json" \
     -H "Content-Encoding: gzip" \
     -F "transcript=@$temp_file;type=application/gzip" \
     -F "session_id=$session_id" \
@@ -90,12 +91,27 @@ response=$(curl -s -w "\n%{http_code}" -X POST \
     "$API_URL")
 
 # Extract HTTP status code
-http_code=$(echo "$response" | tail -n1)
-response_body=$(echo "$response" | head -n-1)
+# Check if response has content
+if [ -z "$response" ]; then
+    http_code=""
+    response_body=""
+else
+    # Count lines in response
+    line_count=$(echo "$response" | wc -l)
+    if [ "$line_count" -eq 1 ]; then
+        # Only status code, no body
+        http_code="$response"
+        response_body=""
+    else
+        # Extract status code and body
+        http_code=$(echo "$response" | tail -n1)
+        response_body=$(echo "$response" | sed '$d')
+    fi
+fi
 
 # Check response
 if [ "$http_code" -eq 200 ] || [ "$http_code" -eq 201 ]; then
-    echo "Session data sent successfully to Crono"
+    echo "Session data sent successfully to Local CodeTrac"
     exit 0
 else
     echo "Failed to send session data. HTTP status: $http_code" >&2

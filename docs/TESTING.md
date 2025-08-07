@@ -1,6 +1,6 @@
-# DevTrack Testing Guide
+# CodeTrac Testing Guide
 
-This guide explains how to test DevTrack with multiple developers using VMs, Docker, or multiple local environments.
+This guide explains how to test CodeTrac with multiple developers using VMs, Docker, or multiple local environments.
 
 ## Testing Strategies
 
@@ -31,7 +31,7 @@ VMs provide the most realistic testing environment with complete isolation.
 4. **Setup webhook hooks** on each VM:
    ```bash
    # Copy the hook script
-   cp docs/devtrack-hook.sh ~/claude-hook.sh
+   cp scripts/codetrac-hook.sh ~/claude-hook.sh
    
    # Edit with VM-specific settings
    nano ~/claude-hook.sh
@@ -43,7 +43,7 @@ VMs provide the most realistic testing environment with complete isolation.
 
 5. **Generate API tokens** for each developer:
    ```bash
-   # On the DevTrack server
+   # On the CodeTrac server
    php artisan api:generate-token --developer=john@ubuntu-vm
    php artisan api:generate-token --developer=jane@macos-vm
    ```
@@ -62,7 +62,7 @@ version: '3.8'
 services:
   dev1:
     image: ubuntu:22.04
-    container_name: devtrack-dev1
+    container_name: codetrac-dev1
     hostname: dev1-machine
     environment:
       - USER=developer1
@@ -72,7 +72,7 @@ services:
 
   dev2:
     image: ubuntu:22.04
-    container_name: devtrack-dev2
+    container_name: codetrac-dev2
     hostname: dev2-machine
     environment:
       - USER=developer2
@@ -82,7 +82,7 @@ services:
 
   dev3:
     image: ubuntu:22.04
-    container_name: devtrack-dev3
+    container_name: codetrac-dev3
     hostname: dev3-machine
     environment:
       - USER=developer3
@@ -100,7 +100,7 @@ docker-compose -f docker-compose.test.yml up -d
 Install Claude Code in each container:
 
 ```bash
-docker exec -it devtrack-dev1 bash
+docker exec -it codetrac-dev1 bash
 # Inside container
 apt-get update && apt-get install -y curl nodejs npm
 npm install -g @anthropic/claude-code
@@ -176,7 +176,7 @@ Create `test-multi-developer.sh`:
 
 # Configuration
 API_URL="http://localhost:8000/api/webhook/session"
-DEVTRACK_DIR="/path/to/devtrack"
+CODETRAC_DIR="/path/to/codetrac"
 
 # Function to simulate a developer session
 simulate_session() {

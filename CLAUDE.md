@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is DevTrack, a Laravel application with Vue 3 + Inertia.js frontend for tracking Claude Code development sessions. The application receives webhook data from Claude Code sessions and provides analytics dashboards to visualize development activity, costs, and productivity metrics.
+This is CodeTrac, a Laravel application with Vue 3 + Inertia.js frontend for tracking Claude Code development sessions. The application receives webhook data from Claude Code sessions and provides analytics dashboards to visualize development activity, costs, and productivity metrics.
 
 ## Key Architecture
 
@@ -125,4 +125,4 @@ The application uses SQLite by default. Key environment variables:
 
 ## Webhook Integration
 
-The application receives Claude Code session data via webhook. The devtrack.sh script in `/docs/` shows how to configure Claude Code hooks to send session transcripts to this application.
+The application receives Claude Code session data via webhook. The codetrac.sh script in `/scripts/` shows how to configure Claude Code hooks to send session transcripts to this application.

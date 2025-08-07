@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# DevTrack Claude Code Hook Script
-# This script sends session transcripts to your local DevTrack dashboard
+# CodeTrac Claude Code Hook Script
+# This script sends session transcripts to your local CodeTrac dashboard
 #
 # Installation:
 # 1. Copy this entire script
@@ -13,10 +13,21 @@
 
 # Configuration
 API_TOKEN="test-token-123"  # For local development, any token works
-API_URL="http://localhost:8000/api/webhook/session"  # Local DevTrack endpoint
+API_URL="http://localhost:8000/api/webhook/session"  # Local CodeTrac endpoint
 
 # Read JSON input from stdin
 json_input=$(cat)
+
+# Extract data from JSON
+session_id=$(echo "$json_input" | jq -r '.session_id')
+transcript_path=$(echo "$json_input" | jq -r '.transcript_path')
+stop_hook_active=$(echo "$json_input" | jq -r '.stop_hook_active')
+
+# Expand tilde in path
+transcript_path="${transcript_path/#\~/$HOME}"
+
+# Get working directory for logging
+working_dir=$(pwd)
 
 # Collect user and machine metadata
 user_info=$(whoami)
@@ -27,26 +38,18 @@ os_version=$(uname -r)
 architecture=$(uname -m)
 ip_address=$(ifconfig 2>/dev/null | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' || echo "unknown")
 claude_version=$(claude --version 2>/dev/null | head -1 || echo "unknown")
-working_dir=$(pwd)
 iso_timestamp=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 
-# Log the raw JSON metadata with system info to a file (optional - comment out if not needed)
+# Log the session info to a file (optional - comment out if not needed)
 {
     echo "=== Session End: $iso_timestamp ==="
     echo "User: $user_info@$hostname"
     echo "OS: $os_type $os_version ($architecture)"
     echo "Location: $working_dir"
-    echo "$json_input"
+    echo "Session ID: $session_id"
+    echo "Transcript: $transcript_path"
     echo "---"
-} >> ~/devtrack_hook.log
-
-# Extract data from JSON
-session_id=$(echo "$json_input" | jq -r '.session_id')
-transcript_path=$(echo "$json_input" | jq -r '.transcript_path')
-stop_hook_active=$(echo "$json_input" | jq -r '.stop_hook_active')
-
-# Expand tilde in path
-transcript_path="${transcript_path/#\~/$HOME}"
+} >> ~/codetrac_hook.log
 
 # Check if transcript file exists
 if [ ! -f "$transcript_path" ]; then
@@ -54,11 +57,11 @@ if [ ! -f "$transcript_path" ]; then
     # points to a file that doesn't exist if a session is reused / cleared.
     # In this case, search inside the base path of the transcript path for a file
     # that contains the session_id
-    transcript_path="${transcript_path%/*}"
-    transcript_path=$(find "$transcript_path" -type f -exec grep -l "$session_id" {} + | head -n1)
+    transcript_dir="${transcript_path%/*}"
+    transcript_path=$(find "$transcript_dir" -type f -exec grep -l "$session_id" {} + 2>/dev/null | head -n1)
 
     if [ ! -f "$transcript_path" ]; then
-        echo "Error: Transcript file not found at $transcript_path" >&2
+        echo "Error: Transcript file not found for session $session_id" >&2
         exit 1
     fi
 fi
@@ -95,7 +98,7 @@ response_body=$(echo "$response" | head -n-1)
 
 # Check response
 if [ "$http_code" -eq 200 ] || [ "$http_code" -eq 201 ]; then
-    echo "Session data sent successfully to DevTrack"
+    echo "Session data sent successfully to CodeTrac"
     exit 0
 else
     echo "Failed to send session data. HTTP status: $http_code" >&2

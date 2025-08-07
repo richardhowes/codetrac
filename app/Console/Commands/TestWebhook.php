@@ -13,9 +13,9 @@ use Illuminate\Console\Command;
 
 class TestWebhook extends Command
 {
-    protected $signature = 'devtrack:test {--sessions=5 : Number of test sessions to create}';
+    protected $signature = 'codetrac:test {--sessions=5 : Number of test sessions to create}';
 
-    protected $description = 'Generate test data for DevTrack dashboard';
+    protected $description = 'Generate test data for CodeTrac dashboard';
 
     public function handle()
     {

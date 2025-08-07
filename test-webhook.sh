@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Test script for DevTrack webhook
+# Test script for CodeTrac webhook
 # Simulates sending Claude Code session data
 
 # Create a sample transcript file

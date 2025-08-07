@@ -1,6 +1,6 @@
-# DevTrack Deployment Guide
+# CodeTrac Deployment Guide
 
-This guide will help you deploy DevTrack to a production environment.
+This guide will help you deploy CodeTrac to a production environment.
 
 ## Prerequisites
 
@@ -16,8 +16,8 @@ This guide will help you deploy DevTrack to a production environment.
 ### 1.1 Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/devtrack.git /var/www/devtrack
-cd /var/www/devtrack
+git clone https://github.com/yourusername/codetrac.git /var/www/codetrac
+cd /var/www/codetrac
 ```
 
 ### 1.2 Install Dependencies
@@ -36,7 +36,7 @@ cp .env.production .env
 
 Edit `.env` and update:
 - `APP_KEY` - Generate with `php artisan key:generate`
-- `APP_URL` - Your domain (e.g., https://devtrack.yourdomain.com)
+- `APP_URL` - Your domain (e.g., https://codetrac.dev)
 - Database credentials
 - Mail configuration (optional)
 
@@ -45,9 +45,9 @@ Edit `.env` and update:
 Create your database:
 
 ```sql
-CREATE DATABASE devtrack;
-CREATE USER devtrack_user WITH PASSWORD 'your_secure_password';
-GRANT ALL PRIVILEGES ON DATABASE devtrack TO devtrack_user;
+CREATE DATABASE codetrac;
+CREATE USER codetrac_user WITH PASSWORD 'your_secure_password';
+GRANT ALL PRIVILEGES ON DATABASE codetrac TO codetrac_user;
 ```
 
 Run migrations:
@@ -59,32 +59,32 @@ php artisan migrate --force
 ### 1.5 Set Permissions
 
 ```bash
-chown -R www-data:www-data /var/www/devtrack
-chmod -R 755 /var/www/devtrack
-chmod -R 775 /var/www/devtrack/storage
-chmod -R 775 /var/www/devtrack/bootstrap/cache
+chown -R www-data:www-data /var/www/codetrac
+chmod -R 755 /var/www/codetrac
+chmod -R 775 /var/www/codetrac/storage
+chmod -R 775 /var/www/codetrac/bootstrap/cache
 ```
 
 ## Step 2: Web Server Configuration
 
 ### Nginx Configuration
 
-Create `/etc/nginx/sites-available/devtrack`:
+Create `/etc/nginx/sites-available/codetrac`:
 
 ```nginx
 server {
     listen 80;
-    server_name devtrack.yourdomain.com;
+    server_name codetrac.dev;
     return 301 https://$server_name$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name devtrack.yourdomain.com;
-    root /var/www/devtrack/public;
+    server_name codetrac.dev;
+    root /var/www/codetrac/public;
 
-    ssl_certificate /etc/letsencrypt/live/devtrack.yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/devtrack.yourdomain.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/codetrac.dev/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/codetrac.dev/privkey.pem;
 
     add_header X-Frame-Options "SAMEORIGIN";
     add_header X-Content-Type-Options "nosniff";
@@ -117,7 +117,7 @@ server {
 Enable the site:
 
 ```bash
-ln -s /etc/nginx/sites-available/devtrack /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/codetrac /etc/nginx/sites-enabled/
 nginx -t
 systemctl reload nginx
 ```
@@ -127,19 +127,19 @@ systemctl reload nginx
 Create a systemd service for queue workers:
 
 ```bash
-sudo nano /etc/systemd/system/devtrack-queue.service
+sudo nano /etc/systemd/system/codetrac-queue.service
 ```
 
 ```ini
 [Unit]
-Description=DevTrack Queue Worker
+Description=CodeTrac Queue Worker
 After=network.target
 
 [Service]
 User=www-data
 Group=www-data
 Restart=always
-ExecStart=/usr/bin/php /var/www/devtrack/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+ExecStart=/usr/bin/php /var/www/codetrac/artisan queue:work --sleep=3 --tries=3 --max-time=3600
 
 [Install]
 WantedBy=multi-user.target
@@ -148,8 +148,8 @@ WantedBy=multi-user.target
 Enable and start the service:
 
 ```bash
-systemctl enable devtrack-queue
-systemctl start devtrack-queue
+systemctl enable codetrac-queue
+systemctl start codetrac-queue
 ```
 
 ## Step 4: API Token Setup
@@ -169,11 +169,11 @@ The command will:
 
 ### Update Hook Scripts
 
-Each developer should update their `devtrack-hook.sh` script:
+Each developer should update their `codetrac-hook.sh` script:
 
 1. Change the `API_URL` to your production URL:
    ```bash
-   API_URL="https://devtrack.yourdomain.com/api/webhook/session"
+   API_URL="https://codetrac.dev/api/webhook/session"
    ```
 
 2. Replace `test-token-123` with their generated API token:
@@ -187,7 +187,7 @@ Install Certbot for Let's Encrypt:
 
 ```bash
 apt install certbot python3-certbot-nginx
-certbot --nginx -d devtrack.yourdomain.com
+certbot --nginx -d codetrac.dev
 ```
 
 ## Step 6: Optimization
@@ -219,13 +219,13 @@ opcache.validate_timestamps=0
 Monitor Laravel logs:
 
 ```bash
-tail -f /var/www/devtrack/storage/logs/laravel.log
+tail -f /var/www/codetrac/storage/logs/laravel.log
 ```
 
 ### Queue Worker Logs
 
 ```bash
-journalctl -u devtrack-queue -f
+journalctl -u codetrac-queue -f
 ```
 
 ### Webhook Activity
@@ -254,17 +254,17 @@ php artisan tinker
 - Ensure `.env` file exists and is configured
 
 ### Queue not processing
-- Check queue worker status: `systemctl status devtrack-queue`
-- Restart worker: `systemctl restart devtrack-queue`
+- Check queue worker status: `systemctl status codetrac-queue`
+- Restart worker: `systemctl restart codetrac-queue`
 
 ### API authentication failing
 - Verify token is correct in hook script
 - Check if token is active: `php artisan tinker` then `App\Models\ApiToken::where('token_hash', hash('sha256', 'your-token'))->first()`
 
-## Updating DevTrack
+## Updating CodeTrac
 
 ```bash
-cd /var/www/devtrack
+cd /var/www/codetrac
 git pull origin main
 composer install --optimize-autoloader --no-dev
 npm install && npm run build
@@ -273,5 +273,5 @@ php artisan cache:clear
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-systemctl restart devtrack-queue
+systemctl restart codetrac-queue
 ```

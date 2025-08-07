@@ -86,7 +86,7 @@ const props = defineProps<Props>();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'DevTrack Analytics',
+        title: 'CodeTrac Analytics',
         href: '/dashboard',
     },
 ];
@@ -443,7 +443,7 @@ function formatDate(date: string): string {
 </script>
 
 <template>
-    <Head title="DevTrack Analytics" />
+    <Head title="CodeTrac Analytics" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
