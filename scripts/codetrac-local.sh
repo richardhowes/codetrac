@@ -12,8 +12,14 @@
 # The script will run after each Claude Code session ends
 
 # Configuration - POINTING TO LOCAL CODETRAC
-API_TOKEN="test-token-123"
-API_URL="http://localhost:8000/api/webhook/session"
+# Allow override via ~/.codetrac/config or env vars.
+if [ -f "$HOME/.codetrac/config" ]; then
+    # shellcheck source=/dev/null
+    . "$HOME/.codetrac/config"
+fi
+
+API_TOKEN=${CODETRAC_TOKEN:-"test-token-123"}
+API_URL=${CODETRAC_URL:-"http://localhost:8000/api/webhook/session"}
 
 # Read JSON input from stdin
 json_input=$(cat)

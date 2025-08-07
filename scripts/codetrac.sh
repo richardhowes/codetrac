@@ -3,9 +3,24 @@
 # CodeTrac Claude Code Hook Script
 # This script sends Claude Code session transcripts to CodeTrac for analytics
 
-# Configuration - Update these values for your setup
-CODETRAC_URL="http://codetrac.dev/api/webhook/session"
-CODETRAC_TOKEN="47lz0q2eFBf50hXwcn1x9Pl4flzTpxi5uY3N7RBV7Br9y3VcTWKEkPrUANs5"
+# Configuration
+# Prefer environment variables or ~/.codetrac/config to avoid committing secrets.
+# Defaults to the cloud endpoint if CODETRAC_URL is not set.
+
+# Load optional user config
+if [ -f "$HOME/.codetrac/config" ]; then
+    # shellcheck source=/dev/null
+    . "$HOME/.codetrac/config"
+fi
+
+CODETRAC_URL=${CODETRAC_URL:-"https://codetrac-main-nndxzh.laravel.cloud/api/webhook/session"}
+CODETRAC_TOKEN=${CODETRAC_TOKEN:-""}
+
+if [ -z "$CODETRAC_TOKEN" ]; then
+    echo "Error: CODETRAC_TOKEN is not set."
+    echo "Set it in your environment (export CODETRAC_TOKEN=...) or in ~/.codetrac/config"
+    exit 1
+fi
 
 # Read JSON input from stdin
 json_input=$(cat)
@@ -62,7 +77,7 @@ gzip -c "$TRANSCRIPT_PATH" > "$TEMP_FILE"
 echo "Sending session data to CodeTrac..." >&2
 RESPONSE=$(curl -s -X POST "$CODETRAC_URL" \
     -H "Authorization: Bearer $CODETRAC_TOKEN" \
-    -H "Content-Encoding: gzip" \
+    -H "Accept: application/json" \
     -F "transcript=@$TEMP_FILE;type=application/gzip" \
     -F "session_id=$SESSION_ID" \
     -F "stop_hook_active=$STOP_HOOK_ACTIVE" \
