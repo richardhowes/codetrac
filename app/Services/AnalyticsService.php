@@ -13,10 +13,19 @@ use Illuminate\Support\Facades\DB;
 
 class AnalyticsService
 {
-    public function getDashboardStats(?int $developerId = null, ?int $projectId = null, ?string $period = '7days'): array
+    /**
+     * Build dashboard stats scoped to allowed developer IDs.
+     *
+     * @param array<int> $allowedDeveloperIds
+     */
+    public function getDashboardStats(array $allowedDeveloperIds, ?int $developerId = null, ?int $projectId = null, ?string $period = '7days'): array
     {
         $query = ClaudeSession::query()
             ->with(['metrics', 'developer', 'project']);
+
+        if (!empty($allowedDeveloperIds)) {
+            $query->whereIn('developer_id', $allowedDeveloperIds);
+        }
 
         if ($developerId) {
             $query->where('developer_id', $developerId);
@@ -37,7 +46,7 @@ class AnalyticsService
             'file_types_written' => $this->getFileTypeStats($sessions, 'edit'),
             'file_types_read' => $this->getFileTypeStats($sessions, 'read'),
             'top_commands' => $this->getTopCommands($sessions),
-            'recent_sessions' => $this->getRecentSessions($developerId, $projectId, 10),
+            'recent_sessions' => $this->getRecentSessions($allowedDeveloperIds, $developerId, $projectId, 10),
             'top_files' => $this->getTopFiles($sessions),
         ];
     }
@@ -171,10 +180,19 @@ class AnalyticsService
         return $result;
     }
 
-    protected function getRecentSessions(?int $developerId, ?int $projectId, int $limit): Collection
+    /**
+     * Recent sessions scoped to allowed developer IDs.
+     *
+     * @param array<int> $allowedDeveloperIds
+     */
+    protected function getRecentSessions(array $allowedDeveloperIds, ?int $developerId, ?int $projectId, int $limit): Collection
     {
         $query = ClaudeSession::query()
             ->with(['developer', 'project', 'metrics']);
+
+        if (!empty($allowedDeveloperIds)) {
+            $query->whereIn('developer_id', $allowedDeveloperIds);
+        }
 
         if ($developerId) {
             $query->where('developer_id', $developerId);
@@ -252,12 +270,22 @@ class AnalyticsService
         }
     }
 
-    public function getDeveloperStats(): Collection
+    /**
+     * Developer summaries scoped to allowed developer IDs.
+     *
+     * @param array<int> $allowedDeveloperIds
+     */
+    public function getDeveloperStats(array $allowedDeveloperIds = []): Collection
     {
-        return Developer::with(['sessions' => function ($query) {
+        $q = Developer::query()->with(['sessions' => function ($query) {
             $query->where('started_at', '>=', Carbon::now()->subDays(30));
-        }])
-        ->get()
+        }]);
+
+        if (!empty($allowedDeveloperIds)) {
+            $q->whereIn('id', $allowedDeveloperIds);
+        }
+
+        return $q->get()
         ->map(function ($developer) {
             return [
                 'id' => $developer->id,
@@ -274,11 +302,23 @@ class AnalyticsService
         });
     }
 
-    public function getProjectStats(): Collection
+    /**
+     * Project summaries derived from sessions scoped to allowed developer IDs.
+     *
+     * @param array<int> $allowedDeveloperIds
+     */
+    public function getProjectStats(array $allowedDeveloperIds = []): Collection
     {
-        return Project::where('last_activity_at', '>=', Carbon::now()->subDays(30))
-            ->orderBy('last_activity_at', 'desc')
-            ->get()
+        $projects = Project::where('last_activity_at', '>=', Carbon::now()->subDays(30))
+            ->orderBy('last_activity_at', 'desc');
+
+        if (!empty($allowedDeveloperIds)) {
+            $projects->whereHas('sessions', function ($q) use ($allowedDeveloperIds) {
+                $q->whereIn('developer_id', $allowedDeveloperIds);
+            });
+        }
+
+        return $projects->get()
             ->map(function ($project) {
                 return [
                     'id' => $project->id,
