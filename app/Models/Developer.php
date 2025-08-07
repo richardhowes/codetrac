@@ -39,6 +39,11 @@ class Developer extends Model
         return $this->hasMany(ClaudeSession::class);
     }
 
+    public function apiTokens(): HasMany
+    {
+        return $this->hasMany(ApiToken::class);
+    }
+
     public static function findOrCreateByMetadata(array $metadata): self
     {
         return static::firstOrCreate(

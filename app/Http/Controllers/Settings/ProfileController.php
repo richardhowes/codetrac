@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Models\ApiToken;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
@@ -18,9 +19,19 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $developer = null;
+        $tokens = [];
+        if ($request->user()) {
+            $developer = \App\Models\Developer::where('user_id', $request->user()->id)->first();
+            if ($developer) {
+                $tokens = $developer->apiTokens()->latest()->get(['id','name','last_used_at','expires_at','is_active','created_at']);
+            }
+        }
+
         return Inertia::render('settings/Profile', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            'apiTokens' => $tokens,
         ]);
     }
 
