@@ -7,6 +7,11 @@
 # Prefer environment variables or ~/.codetrac/config to avoid committing secrets.
 # Defaults to the cloud endpoint if CODETRAC_URL is not set.
 
+die() {
+    echo "$1" >&2
+    exit 1
+}
+
 # Load optional user config
 if [ -f "$HOME/.codetrac/config" ]; then
     # shellcheck source=/dev/null
@@ -16,11 +21,7 @@ fi
 CODETRAC_URL=${CODETRAC_URL:-"https://codetrac-main-nndxzh.laravel.cloud/api/webhook/session"}
 CODETRAC_TOKEN=${CODETRAC_TOKEN:-""}
 
-if [ -z "$CODETRAC_TOKEN" ]; then
-    echo "Error: CODETRAC_TOKEN is not set."
-    echo "Set it in your environment (export CODETRAC_TOKEN=...) or in ~/.codetrac/config"
-    exit 1
-fi
+[ -z "$CODETRAC_TOKEN" ] && die "CODETRAC_TOKEN is not set. Set it via export or ~/.codetrac/config"
 
 # Read JSON input from stdin
 json_input=$(cat)
@@ -44,8 +45,7 @@ if [ ! -f "$TRANSCRIPT_PATH" ]; then
     TRANSCRIPT_PATH=$(find "$transcript_dir" -type f -exec grep -l "$SESSION_ID" {} + 2>/dev/null | head -n1)
 
     if [ ! -f "$TRANSCRIPT_PATH" ]; then
-        echo "Error: Transcript file not found for session $SESSION_ID" >&2
-        exit 1
+        die "Transcript file not found for session $SESSION_ID"
     fi
 fi
 
